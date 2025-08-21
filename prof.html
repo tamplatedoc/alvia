@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halaman Profil</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to bottom, #000000, #00bfff);
+            color: white;
+            text-align: center;
+            padding: 50px;
+            min-height: 100vh; /* Memastikan latar belakang mencakup seluruh tinggi viewport */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* Menyusun konten di atas */
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #00ffcc;
+            font-size: 36px; /* Ukuran font judul */
+            align-self: center; /* Menyusun judul di tengah */
+        }
+
+        .profile-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 50px; /* Jarak antar kolom */
+            margin-bottom: 20px; /* Jarak antara konten dan tombol */
+        }
+
+        .profile-column {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 30px; /* Menambah padding untuk tinggi kotak */
+            width: 300px; /* Lebar kolom */
+            height: auto; /* Tinggi kolom otomatis */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            text-align: left; /* Mengatur teks rata kiri */
+        }
+
+        .profile-info {
+            font-size: 24px; /* Ukuran font informasi */
+            margin-bottom: 15px; /* Jarak antar informasi */
+            display: flex;
+            justify-content: space-between; /* Menjaga jarak antara label dan nilai */
+        }
+
+        .profile-info span {
+            display: inline-block; /* Memastikan label dan nilai berada dalam satu baris */
+        }
+
+        button {
+            background-color: #00bfff;
+            color: white;
+            border: none;
+            padding: 10px 15px; /* Memperpendek padding tombol */
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 18px; /* Ukuran font tombol */
+            align-self: center; /* Menyusun tombol di tengah */
+        }
+
+        button:hover {
+            background-color: #0080ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Profil Pengguna</h1>
+    <div class="profile-container">
+        <div class="profile-column">
+            <div class="profile-info">
+                <span>Nama Lengkap:</span>
+                <span id="fullName"> </span>
+            </div>
+            <div class="profile-info">
+                <span>Jenis Kelamin:</span>
+                <span id="gender"> </span>
+            </div>
+            <div class="profile-info">
+                <span>Umur:</span>
+                <span id="age"> </span>
+            </div>
+            <div class="profile-info">
+                <span>Nomor HP:</span>
+                <span id="phone"> </span>
+            </div>
+        </div>
+    </div>
+    <button id="backButton">Kembali</button> <!-- Memperpendek teks tombol -->
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3VtggZ3POaniiW29w0a9hxpdL8tsT_B8",
+            authDomain: "heartalv-bbb9f.firebaseapp.com",
+            projectId: "heartalv-bbb9f",
+            storageBucket: "heartalv-bbb9f.appspot.com",
+            messagingSenderId: "419949588771",
+            appId: "1:419949588771:web:d0b4a4d2b3b2312b505c96",
+            measurementId: "G-8RDRRPGWMW"
+        };
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Mendapatkan ID pengguna dari localStorage
+        const userId = localStorage.getItem('userId');
+
+        if (userId) {
+            // Mengambil data profil pengguna
+            const userRef = doc(db, `users/${userId}`);
+
+            getDoc(userRef).then((docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('fullName').innerText += data.fullName || 'Tidak tersedia';
+                    document.getElementById('gender').innerText += data.gender || 'Tidak tersedia';
+                    document.getElementById('age').innerText += data.age || 'Tidak tersedia';
+                    document.getElementById('phone').innerText += data.whatsapp || 'Tidak tersedia'; // Menggunakan field whatsapp
+                } else {
+                    console.log("Data tidak ditemukan");
+                }
+            }).catch((error) => {
+                console.error("Error getting document:", error);
+            });
+        } else {
+            alert("Anda harus login untuk mengakses halaman ini.");
+            window.location.href = 'index.html'; // Ganti dengan URL halaman login Anda
+        }
+
+        document.getElementById('backButton').addEventListener('click', () => {
+            window.location.href = 'dsb.html'; // Ganti dengan URL dashboard Anda
+        });
+    </script>
+</body>
+</html>
