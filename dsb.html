@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="images/favic.png" type="image/png">
+    <title>DASHBOARD MOVEMIND CONTROL</title>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #000000, #00bfff);
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1, p, .main-icon {
+            text-align: center;
+            width: 100%;
+        }
+        .main-icon {
+            font-size: 50px;
+            margin: 10px 0 20px;
+        }
+        .menu {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        .menu-item {
+            background-color: #003366;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1 1 120px;
+            min-width: 120px;
+            transition: background-color 0.3s;
+            margin: 5px;
+        }
+        .menu-item:hover {
+            background-color: #00bfff;
+        }
+        .menu-item a {
+            color: #ffffff;
+            text-decoration: none;
+            display: block;
+        }
+        #notifikasi {
+            display: none;
+            background: #ffcc00;
+            color: #000;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+            max-width: 90%;
+        }
+    </style>
+</head>
+<body>
+    <h1>DASHBOARD MOVEMIND CONTROL</h1>
+    <p>"Move and Remind Your Body"<br>Pantau gerak kecil, Raih perubahan besar. Pengingat cerdas untuk tubuh aktif.</p>
+    <div class="main-icon">❤️</div>
+    <div class="menu">
+        <div class="menu-item"><a href="ekg.html"><div class="menu-icon">❤️</div><p>Heart Rate</p></a></div>
+        <div class="menu-item"><a href="grapic.html"><div class="menu-icon">📊</div><p>Graphic</p></a></div>
+        <div class="menu-item"><a href="prog.html"><div class="menu-icon">📈</div><p>Progress</p></a></div>
+        <div class="menu-item"><a href="prof.html"><div class="menu-icon">👤</div><p>Profile</p></a></div>
+    </div>
+
+    <div id="notifikasi">Notifikasi akan muncul di sini...</div>
+    <audio id="alert-sound" src="sounds/alert.mp3" preload="auto"></audio>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUser WithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3VtggZ3POaniiW29w0a9hxpdL8tsT_B8",
+            authDomain: "heartalv-bbb9f.firebaseapp.com",
+            databaseURL: "https://heartalv-bbb9f-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "heartalv-bbb9f",
+            storageBucket: "heartalv-bbb9f.firebasestorage.app",
+            messagingSenderId: "419949588771",
+            appId: "1:419949588771:web:d0b4a4d2b3b2312b505c96"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const rtdb = getDatabase(app);
+
+        let userAge = null;
+        let deviceId = "demo-device"; // Ganti jika perlu
+
+        // Fungsi untuk mendaftar pengguna baru
+        function registerUser (email, password, age, fullName, gender, username, whatsapp) {
+            createUser WithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    // Buat dokumen pengguna di Firestore
+                    return setDoc(doc(db, "users", user.uid), {
+                        age: age,
+                        fullName: fullName,
+                        gender: gender,
+                        username: username,
+                        whatsapp: whatsapp
+                    });
+                })
+                .then(() => {
+                    console.log("Dokumen pengguna berhasil dibuat");
+                })
+                .catch((error) => {
+                    console.error("Error during registration:", error);
+                });
+        }
+
+        // Memeriksa status autentikasi pengguna
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const userId = user.uid; // Ambil UID pengguna yang terautentikasi
+                console.log("User    ID:", userId); // Log UID untuk debugging
+                const userDocRef = doc(db, "users", userId); // Referensi ke dokumen pengguna
+
+                getDoc(userDocRef).then((doc) => {
+                    if (doc.exists()) {
+                        userAge = doc.data().age; // Ambil data usia
+                        console.log("User    Age:", userAge); // Log usia untuk debugging
+                        listenBPM(deviceId); // Panggil fungsi untuk mendengarkan BPM
+                    } else {
+                        console.log("Dokumen tidak ditemukan untuk UID:", userId); // Jika dokumen tidak ada
+                    }
+                }).catch((error) => {
+                    console.error("Error getting document:", error); // Tangani kesalahan
+                });
+            } else {
+                console.log("Pengguna tidak terautentikasi"); // Jika tidak ada pengguna yang terautentikasi
+            }
+        });
+
+        function listenBPM(deviceId) {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const path = `/heartRateData/${deviceId}/${dateStr}`;
+
+            const bpmRef = ref(rtdb, path);
+            onValue(bpmRef, (snapshot) => {
+                const data = snapshot.val();
+                const bpmHistory = [];
+                if (data) {
+                    for (let time in data) {
+                        bpmHistory.push({ time: time, value: data[time] });
+                    }
+                    checkCondition(userAge, bpmHistory);
+                } else {
+                    console.log("Data tidak ditemukan untuk path:", path);
+                }
+            });
+        }
+
+        function checkCondition(age, bpmData) {
+            if (!age || bpmData.length < 2) return;
+
+            let bpmRange = [0, 0];
+            if (age >= 5 && age <= 14) bpmRange = [60, 100];
+            else if (age >= 15 && age <= 24) bpmRange = [60, 95];
+            else if (age >= 25 && age <= 44) bpmRange = [60, 90];
+            else if (age >= 45 && age <= 60) bpmRange = [60, 85];
+
+            const now = new Date();
+            const recentData = bpmData.filter(item => {
+                const [h, m] = item.time.split(":").map(Number);
+                const dataTime = new Date(now);
+                dataTime.setHours(h, m, 0, 0);
+                return (now - dataTime) <= 300000; // 5 menit
+            });
+
+            const isStable = recentData.every(item =>
+                item.value >= bpmRange[0] && item.value <= bpmRange[1]);
+
+            if (isStable && recentData.length >= 3) {
+                triggerNotification();
+            }
+        }
+
+        function triggerNotification() {
+            const notif = document.getElementById("notifikasi");
+            notif.innerText = "Lakukan aktivitas ringan selama 5 menit! Kamu bisa berjalan-jalan santai, naik turun tangga, ataupun peregangan.";
+            notif.style.display = "block";
+            const sound = document.getElementById("alert-sound");
+            sound.play();
+            setTimeout(() => {
+                sound.pause();
+                sound.currentTime = 0;
+                notif.style.display = "none";
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
