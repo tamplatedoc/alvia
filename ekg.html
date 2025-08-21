@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+   <link rel="icon" href="images/favic.png" type="image/png">
+  <title>Realtime BPM Monitor</title>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(to bottom, #000000, #00bfff); /* Latar belakang hitam kebiruan */
+      color: #00ffff; /* Warna font biru muda */
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+      color: #00ffcc; /* Warna judul yang lebih cerah */
+    }
+
+    canvas {
+      background-color: #000;
+      border: 2px solid #0f0;
+      width: 700px; /* Ukuran lebar canvas diubah */
+      height: 500px; /* Ukuran tinggi canvas diubah */
+    }
+
+    #bpm {
+      font-size: 32px;
+      margin-bottom: 10px;
+      color: #00ffcc; /* Warna BPM yang lebih cerah */
+    }
+
+    #soundToggle, #backButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #007f7f; /* Warna tombol yang lebih gelap */
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: monospace;
+    }
+
+    #soundToggle:hover, #backButton:hover {
+      background-color: #00ffcc; /* Warna tombol saat hover */
+    }
+  </style>
+</head>
+<body>
+  <h1>Realtime EKG BPM Monitor</h1>
+  <div id="bpm">BPM: 0</div>
+  <canvas id="ekgCanvas" width="400" height="350"></canvas> <!-- Ukuran canvas diubah -->
+  <button id="soundToggle">Toggle Sound</button>
+  <button id="backButton">Kembali ke Dashboard</button> <!-- Tombol Kembali ke Dashboard -->
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA3VtggZ3POaniiW29w0a9hxpdL8tsT_B8",
+      authDomain: "heartalv-bbb9f.firebaseapp.com",
+      databaseURL: "https://heartalv-bbb9f-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "heartalv-bbb9f",
+      storageBucket: "heartalv-bbb9f.appspot.com",
+      messagingSenderId: "419949588771",
+      appId: "1:419949588771:web:d0b4a4d2b3b2312b505c96",
+      measurementId: "G-8RDRRPGWMW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const heartRateRef = ref(db, "heartRateData/demo-device");
+
+    // Audio context setup
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+    let soundEnabled = true;
+    let lastBeepTime = 0;
+
+    // Setup sound toggle button
+    document.getElementById('soundToggle').addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundToggle').textContent = 
+        soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+    });
+
+    // Tombol kembali ke dashboard
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = 'dsb.html'; // Ganti dengan URL dashboard Anda
+    });
+
+    function playBeep() {
+      if (!soundEnabled || audioContext.state === 'suspended') return;
+      
+      const now = audioContext.currentTime;
+      if (now - lastBeepTime < 0.1) return; // Prevent overlapping beeps
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 600;
+      gainNode.gain.value = 0.2;
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.start();
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      oscillator.stop(now + 0.1);
+      
+      lastBeepTime = now;
+    }
+
+    let currentBPM = 0;
+    let targetBPM = 0;
+    let lastUpdateTime = Date.now();
+    let transitionStartTime = 0;
+    const TRANSITION_DURATION = 800;
+    let dataReceived = false;
+
+    onValue(heartRateRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        dataReceived = true;
+        const dates = Object.keys(data).sort().reverse();
+        for (const date of dates) {
+          const times = Object.keys(data[date] || {}).sort().reverse();
+          for (const time of times) {
+            const bpm = data[date][time];
+            if (bpm !== null && bpm !== undefined) {
+              targetBPM = bpm;
+              transitionStartTime = Date.now();
+              lastUpdateTime = Date.now();
+              return;
+            }
+          }
+        }
+      } else {
+        if (dataReceived && targetBPM !== 0) {
+          targetBPM = 0;
+          transitionStartTime = Date.now();
+        }
+      }
+    });
+
+    function smoothStep(start, end, progress) {
+      progress = Math.min(1, Math.max(0, progress));
+      return start + (end - start) * (progress * progress * (3 - 2 * progress));
+    }
+
+    function drawGrid(ctx, width, height) {
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+      ctx.lineWidth = 0.5;
+
+      for (let x = 0; x < width; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y < height; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+    }
+
+    window.onload = () => {
+      const canvas = document.getElementById("ekgCanvas");
+      const ctx = canvas.getContext("2d");
+
+      let ekgData = [];
+      let ekgIndex = 0;
+      let lastSpikeTime = 0;
+
+      function animateEKG() {
+        const now = Date.now();
+        const timeSinceLastUpdate = now - lastUpdateTime;
+        const transitionProgress = (now - transitionStartTime) / TRANSITION_DURATION;
+        currentBPM = smoothStep(currentBPM, targetBPM, transitionProgress);
+        const bpmDisplay = document.getElementById("bpm");
+        bpmDisplay.innerText = "BPM: " + Math.round(currentBPM);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid(ctx, canvas.width, canvas.height);
+
+        const centerY = canvas.height / 2;
+
+        if ((!dataReceived && currentBPM === 0) || (dataReceived && targetBPM === 0 && currentBPM === 0)) {
+          ctx.beginPath();
+          ctx.moveTo(0, centerY);
+          ctx.lineTo(canvas.width, centerY);
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ekgData = [];
+          ekgIndex = 0;
+        } else {
+          // Generate spike pattern
+          let spike = 0;
+          const spikePeriod = Math.floor((60 / Math.max(currentBPM, 1)) * 60);
+          const isSpiking = (ekgIndex % spikePeriod) < 3;
+
+          if (ekgIndex % spikePeriod === 0) {
+            spike = -35;
+            playBeep(); // Play beep at the start of each spike
+          } else if (ekgIndex % spikePeriod === 1) {
+            spike = 40;
+          } else if (ekgIndex % spikePeriod === 2) {
+            spike = -20;
+          } else {
+            spike = (Math.random() - 0.5) * 2;
+          }
+
+          const ekgY = centerY + spike;
+          ekgData.push(ekgY);
+          ekgIndex++;
+
+          if (ekgData.length > canvas.width) {
+            ekgData.shift();
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(0, ekgData[0]);
+          for (let i = 1; i < ekgData.length; i++) {
+            ctx.lineTo(i, ekgData[i]);
+          }
+
+          ctx.strokeStyle = "#00FF00";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(animateEKG);
+      }
+
+      // Handle click-to-start-audio for browsers that require user interaction
+      document.body.addEventListener('click', () => {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      }, { once: true });
+
+      animateEKG();
+    };
+  </script>
+</body>
+</html>
